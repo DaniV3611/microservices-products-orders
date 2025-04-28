@@ -1,0 +1,71 @@
+services:
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: productsdb
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ordersdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/productsdb
+    networks:
+      - app-network
+    # ports:
+    #   - "3000:3000"
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/ordersdb
+    networks:
+      - app-network
+    # ports:
+    #   - "8000:8000"
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    build:
+      context: ./nginx
+    ports:
+      - "80:80" # Exponer solo el puerto 80
+    depends_on:
+      - product-service
+      - order-service
+    networks:
+      - app-network
+
+volumes:
+  mongo-data:
+  postgres-data:
+
+networks:
+  app-network:
+    driver: bridge
